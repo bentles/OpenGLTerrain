@@ -10,43 +10,99 @@ namespace Enviro3D
 {
 	public class Terrain
 	{
+		public enum Triangle {tl, tr, bl, br}
 
 		public struct TerrainBlock
 		{
-			public float water;
-			public float porosity;
-			public float slope;
+			enum Diagonal {tlbr, trbl} ;
 
-			//tl, tr, bl, br
-			public TerrainBlock(float porosity, float v1, float v2, float v3, float v4)
+			TerrainTriangle top;
+			TerrainTriangle bottom;
+			Diagonal type;
+
+			public TerrainBlock(float porosity, float tl, float tr, float bl, float br, Vector2 bot_left, float scale) {
+				type = (Math.Abs(tl - tr) < Math.Abs(tr - bl)) ? Diagonal.tlbr : Diagonal.trbl ;
+
+				if (type == Diagonal.tlbr) {
+					top = new TerrainTriangle(tr, br, tl, Triangle.tr, bot_left, scale);
+					bottom = new TerrainTriangle(tl, br, bl, Triangle.bl, bot_left, scale);
+				}
+				else {
+					top = new TerrainTriangle(tr, br, bl, Triangle.br ,bot_left, scale);
+					bottom = new TerrainTriangle(tr, bl, tl, Triangle.tl ,bot_left, scale);
+				}
+			}
+
+			public void Draw()
 			{
-				water = 0;
-				float[] vertices = {v1,v2,v3,v4};
+				top.Draw();
+				bottom.Draw();
 
-				int maxi = 0;
-				int mini = 0;
-				float max = -float.MaxValue;
-				float min = float.MaxValue;
+			}
+		}
 
-				for (int i = 0; i < vertices.Length; i++) {
-					if (vertices[i] > max) {
-						max = vertices[i];
-						maxi = i;
-					}
+		public struct TerrainTriangle
+		{
+			public float surface_water;
+			float ground_water;
+			public float porosity;
+			Vector3[] points;
+			Vector3 normal;
+			Vector3 downhill;
 
-					if (vertices[i] < min) {
-						min = vertices[i];
-						mini = i;
-					}
+			//start at the highest, rightmost point. work anticlockwise. highest has priority
+			public TerrainTriangle(float a, float b, float c, Triangle t, Vector2 bl, float scale)
+			{
+				surface_water = 0;
+				ground_water = 0;
+				porosity = 0;
+				points = new Vector3[3];
+				if (t == Triangle.bl) {
+					points[0] = new Vector3(bl.X , a, bl.Y + scale);
+					points[1] = new Vector3(bl.X + scale, b, bl.Y);
+					points[2] = new Vector3(bl.X, c, bl.Y);
+
+				}
+				else if (t == Triangle.br) {
+					points[0] = new Vector3(bl.X + scale, a, bl.Y + scale);
+					points[1] = new Vector3(bl.X + scale, b, bl.Y);
+					points[2] = new Vector3(bl.X, c, bl.Y);
+
+				}
+				else if (t == Triangle.tr) {
+					points[0] = new Vector3(bl.X + scale, a, bl.Y + scale);
+					points[1] = new Vector3(bl.X + scale, b, bl.Y);
+					points[2] = new Vector3(bl.X, c, bl.Y + scale);
+
+				}
+				else {
+					points[0] = new Vector3(bl.X + scale, a, bl.Y + scale);
+					points[1] = new Vector3(bl.X, b, bl.Y);
+					points[2] = new Vector3(bl.X, c, bl.Y + scale);
 				}
 
-				//why is this the only mechanism i can think of... herp derp
-				if ((mini == 3 && maxi == 0) || (mini == 0 && maxi == 3) || (mini == 1 && maxi == 2) || (mini == 2 && maxi == 1)) //diagonal
-					slope = (max - min)/1.41421356237309504880f; //sqrt 2			
-				else
-					slope = max - min ;
+				normal = Vector3.Cross(points[1] - points[0], points[2] - points[0]).Normalized();
+				downhill = Vector3.Cross(Vector3.Cross(normal, -Vector3.UnitY), normal).Normalized();
 
-				this.porosity = 1/slope;			
+				if (Vector3.Dot(downhill, -Vector3.UnitZ) < 0)
+					downhill = -downhill;
+			}
+
+			public void Draw()
+			{
+				GL.Begin(PrimitiveType.Triangles);
+				{
+					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Ambient, new Color4(0.1f, 0.1f, 0.1f, 0.3f));
+					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Diffuse,  new Color4(0.2f   , 0.7f  , 0.2f  , 1f));
+					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Specular,  new Color4(1f   , 1f  , 1f  , 1f));
+					GL.Material(MaterialFace.Front, MaterialParameter.Shininess, 50f);
+
+					GL.Normal3(normal);
+					for (int i = 0; i < points.Length; i++) {
+						GL.Vertex3(points[i]);
+					}
+				}
+				GL.End();
 			}
 		}
 			
@@ -80,76 +136,32 @@ namespace Enviro3D
 							terrain_vertices[i,j] *= item.getNoise(i,j);
 					}				
 
-					if (i > 0 && j > 0)
-					{
+					if (i > 0 && j > 0) {
 						//make and store info about terrain from vertices
-						terrain_blocks[i-1,j-1] = new TerrainBlock(5, terrain_vertices[i-1, j-1], 
-							terrain_vertices[i-1, j],
-							terrain_vertices[i, j],
-							terrain_vertices[i, j-1]);
+						terrain_blocks[i-1,j-1] = new TerrainBlock(5, 
+							terrain_vertices[i-1, j-1], terrain_vertices[i, j-1], 
+							terrain_vertices[i-1, j], terrain_vertices[i, j], 
+							new Vector2((i - 1)*scale, -(j)*scale), scale);
 					}
 				}
 			}
 		}
 
-		public void Draw()
-		{
-			Color4 terrain_ambient_colour = new Color4(0.1f  , 0.1f  , 0.1f , 1f);
-			Color4 terrain_diffuse_colour = new Color4(0.2f   , 0.6f , 0.2f  , 1f);
-
+		public void Draw() {
 			int width = terrain_vertices.GetLength(0) - 1;
 			int height = terrain_vertices.GetLength(1) - 1;
 
 			int wall_height = 30;
 
-			GL.Begin(PrimitiveType.Triangles);
-			GL.ShadeModel(ShadingModel.Smooth);
+
+			//GL.ShadeModel(ShadingModel.Smooth);
 			//draw terrain
 			for (int i = 0; i < width; i++) {
 				for (int j = 0; j < height; j++) {
-					if (terrain_blocks[i,j].slope > 6f)
-					{
-						GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Ambient, terrain_ambient_colour);
-						GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Diffuse,  terrain_diffuse_colour);
-					}
-					else
-					{
-						GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Ambient, new Color4(0.1f, 0.1f, 0.1f, 0.3f));
-						GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Diffuse,  new Color4(0.2f   , 0.7f  , 0.2f  , 1f));
-						GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Specular,  new Color4(0.0f   , 0.15f  , 0.0f  , 1f));
-					}
-					Vector3 bl = new Vector3(i * scale, terrain_vertices[i,j], j * -scale);
-					Vector3 br = new Vector3(i * scale, terrain_vertices[i,j+1], (j+1) * -scale);
-					Vector3 tr = new Vector3((i+1) * scale, terrain_vertices[i+1,j+1], (j+1) * -scale);
-					Vector3 tl = new Vector3((i+1) * scale, terrain_vertices[i+1,j ], j * -scale);
-
-					//draw the triangles with the shortest diagonal line through quad
-					if ((bl - tr).LengthSquared < (tl - br).LengthSquared)
-					{
-						GL.Normal3(Vector3.Cross(tr-bl, tl - bl).Normalized());
-						GL.Vertex3(bl);
-						GL.Vertex3(tl);
-						GL.Vertex3(tr);
-						GL.Normal3(Vector3.Cross(br-bl, tr - bl).Normalized());
-						GL.Vertex3(bl);
-						GL.Vertex3(tr);
-						GL.Vertex3(br);
-					}
-					else
-					{
-						GL.Normal3(Vector3.Cross(tr-bl, tl - bl).Normalized());
-						GL.Vertex3(bl);
-						GL.Vertex3(tl);
-						GL.Vertex3(br);
-						GL.Normal3(Vector3.Cross(br-bl, tr - bl).Normalized());
-						GL.Vertex3(tl);
-						GL.Vertex3(tr);
-						GL.Vertex3(br);
-					}
-
+					terrain_blocks[i,j].Draw();
 				}
 			}
-			GL.End();
+
 			//draw walls
 			Vector3 blf = new Vector3(0,-wall_height,0);
 			Vector3 brf = new Vector3(width * scale,-wall_height,0);
@@ -159,9 +171,6 @@ namespace Enviro3D
 			//draw front wall
 			GL.Begin(PrimitiveType.QuadStrip);
 			{
-				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Ambient, new Color4(0.1f, 0.1f, 0.1f, 0.3f));
-				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Diffuse,  new Color4(0.2f   , 0.7f  , 0.2f  , 1f));
-				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Specular,  new Color4(0.0f   , 0.15f  , 0.0f  , 1f));
 				GL.Normal3(0,0,1);
 				for (int i = width; i >= 0; i--) {
 					GL.Vertex3(blf + (brf - blf)*i/(float)width);
@@ -173,9 +182,6 @@ namespace Enviro3D
 			//draw right wall
 			GL.Begin(PrimitiveType.QuadStrip);
 			{
-				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Ambient, new Color4(0.1f, 0.1f, 0.1f, 0.3f));
-				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Diffuse,  new Color4(0.2f   , 0.7f  , 0.2f  , 1f));
-				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Specular,  new Color4(0.0f   , 0.15f  , 0.0f  , 1f));
 				GL.Normal3(1,0,0);			
 				for (int i = width; i >= 0; i--) {					
 					GL.Vertex3(brf + (brb - brf) * i/(float)width);
@@ -187,9 +193,6 @@ namespace Enviro3D
 			//draw left wall
 			GL.Begin(PrimitiveType.QuadStrip);
 			{
-				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Ambient, new Color4(0.1f, 0.1f, 0.1f, 0.3f));
-				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Diffuse,  new Color4(0.2f   , 0.7f  , 0.2f  , 1f));
-				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Specular,  new Color4(0.0f   , 0.15f  , 0.0f  , 1f));
 				GL.Normal3(-1,0,0);		
 				for (int i = 0; i <= width; i++) {
 					GL.Vertex3(blf + (blb - blf) * i/(float)width);
@@ -201,9 +204,6 @@ namespace Enviro3D
 			//draw back wall
 			GL.Begin(PrimitiveType.QuadStrip);
 			{				
-				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Ambient, new Color4(0.1f, 0.1f, 0.1f, 0.3f));
-				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Diffuse,  new Color4(0.2f   , 0.7f  , 0.2f  , 1f));
-				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Specular,  new Color4(0.0f   , 0.15f  , 0.0f  , 1f));
 				GL.Normal3(0,0,-1);
 
 				for (int i = 0; i <= width; i++) {

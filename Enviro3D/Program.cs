@@ -19,6 +19,8 @@ namespace Enviro3D
 
 	class Game : GameWindow
 	{
+		float etime = 0;
+
 		Vector3 eye = Vector3.Zero;
 		Vector3 target = -Vector3.UnitZ;
 
@@ -33,6 +35,8 @@ namespace Enviro3D
 		const bool ADD = true;
 		const bool MUL = false;
 
+		float[] lightPos;
+
 		Vector2 oldmouse = Vector2.Zero;
 		Terrain t;
 
@@ -41,44 +45,47 @@ namespace Enviro3D
 			Title = "Enviro 3D";
 			WindowState = WindowState.Fullscreen;
 			//CursorVisible = false;
-			GL.ClearColor(Color.FromArgb(0x9966FF));
+			GL.ClearColor(Color.FromArgb(0xC0D9FA));
 
+			lightPos = new float[]{ 10f, 10.0f, 10.0f, 1.0f };		
+
+			GL.Enable(EnableCap.Light0);
+			GL.Enable(EnableCap.Lighting);
 			GL.Enable(EnableCap.DepthTest);
 			GL.Enable(EnableCap.CullFace);
 
+			//make terain from composed random noise
 			List<NoiseWrapper> noisy = new List<NoiseWrapper> {
 				new NoiseWrapper(2f, 0.011f, ADD),
+				//new NoiseWrapper(1f, 0.004f, ADD),
+				new NoiseWrapper(2f, 0.004f, ADD),
+				new NoiseWrapper(1.5f, 0.009f, MUL),
 				new NoiseWrapper(2f, 0.04f, ADD),
-				new NoiseWrapper(4f, 0.004f, ADD),
-				new NoiseWrapper(2f, 0.04f, ADD),
+				new NoiseWrapper(2f, 0.004f, ADD),
 				new NoiseWrapper(0.2f, 0.71f, ADD),
-				new NoiseWrapper(2.5f, 0.009f, MUL),
-				new NoiseWrapper(2f, 0.1f, ADD)};
+				new NoiseWrapper(0.5f, 0.15f, ADD),
+				new NoiseWrapper(1.5f, 0.009f, MUL)
+				};
 			
-			t = new Terrain(100,100, 1, noisy);
+			t = new Terrain(300,300, 1, noisy);
 			t.GenerateTerrainFromNoise();
 		}
 
 		void Draw(Terrain terrain)
 		{
-			//draw light
-			float diffuseLight = 0.6f;
+			//enable light
+			float diffuseLight = 0.8f;
 			float ambientLight = 0.6f;
-			float specularLight = 0.2f;
+			float specularLight = 1f;
 
 			float[] lightKa = { ambientLight, ambientLight, ambientLight, 1.0f }; 
 			float[] lightKd = { diffuseLight, diffuseLight, diffuseLight, 1.0f }; 
-			float[] lightKs = { specularLight, specularLight, specularLight, 1.0f };          
+			float[] lightKs = { specularLight, specularLight, specularLight, 1.0f };    
 
 			GL.Light(LightName.Light0, LightParameter.Ambient, lightKa);
 			GL.Light(LightName.Light0, LightParameter.Diffuse, lightKd);
 			GL.Light(LightName.Light0, LightParameter.Specular, lightKs);
-
-			float[] lightPos = { 10f, -30.0f, 10.0f, 1.0f };
 			GL.Light(LightName.Light0, LightParameter.Position, lightPos);
-
-			GL.Enable(EnableCap.Light0);
-			GL.Enable(EnableCap.Lighting);
 
 			terrain.Draw();
 		}
@@ -86,14 +93,13 @@ namespace Enviro3D
 		protected override void OnLoad (EventArgs e)
 		{
 			base.OnLoad (e);
-
-
 			Init();
 		}
 
 		protected override void OnUpdateFrame (FrameEventArgs e)
 		{
 			base.OnUpdateFrame (e);
+			etime += (float)e.Time;
 
 			//move
 			Vector3 forward = (target - eye); //should be a unit vectorial
@@ -142,6 +148,11 @@ namespace Enviro3D
 		    	target = ud;
 
 			target += eye;
+
+
+			//lighting
+			lightPos[0] = 150 + (float)Math.Cos(etime / 6)*300 ;
+			lightPos[2] = -150 + (float)Math.Sin(etime / 6)*300 ;
 		}
 
 		protected override void OnRenderFrame (FrameEventArgs e)
@@ -167,7 +178,6 @@ namespace Enviro3D
 
 			//these coords in world space are multiplied by the world space -> camera matrix to provide something we can see
 			//so this is where we want the drawing code to go
-
 			Draw(t);
 
 			SwapBuffers();
