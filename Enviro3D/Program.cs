@@ -20,12 +20,17 @@ namespace Enviro3D
 	class Game : GameWindow
 	{
 		float etime = 0;
+        int updateCountdown = 30;
+        int updates = 0;
 
-		Vector3 eye = Vector3.Zero;
-		Vector3 target = -Vector3.UnitZ;
+		Vector3 eye = new Vector3(0,60,0);
+		Vector3 target = new Vector3(0,60,1);
 
 		float move_speed = 50f;
 		float mouse_speed = 0.07f;
+
+		bool flat = false;
+		bool downhills = false;
 
 		const float LEFT = -1;
 		const float RIGHT = 1;
@@ -51,13 +56,15 @@ namespace Enviro3D
 
 			GL.Enable(EnableCap.Light0);
 			GL.Enable(EnableCap.Lighting);
-			GL.Enable(EnableCap.DepthTest);
 			GL.Enable(EnableCap.CullFace);
+			GL.Enable(EnableCap.DepthTest);
+			//GL.Enable(EnableCap.Blend);
+			//GL.BlendFunc(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha);
+			GL.ShadeModel(ShadingModel.Smooth);
 
 			//make terain from composed random noise
 			List<NoiseWrapper> noisy = new List<NoiseWrapper> {
 				new NoiseWrapper(2f, 0.011f, ADD),
-				//new NoiseWrapper(1f, 0.004f, ADD),
 				new NoiseWrapper(2f, 0.004f, ADD),
 				new NoiseWrapper(1.5f, 0.009f, MUL),
 				new NoiseWrapper(2f, 0.04f, ADD),
@@ -67,7 +74,7 @@ namespace Enviro3D
 				new NoiseWrapper(1.5f, 0.009f, MUL)
 				};
 			
-			t = new Terrain(300,300, 1, noisy);
+			t = new Terrain(100,100, 1f, noisy);
 			t.GenerateTerrainFromNoise();
 		}
 
@@ -76,18 +83,18 @@ namespace Enviro3D
 			//enable light
 			float diffuseLight = 0.8f;
 			float ambientLight = 0.6f;
-			float specularLight = 1f;
+			float specularLight = 0.6f;
 
 			float[] lightKa = { ambientLight, ambientLight, ambientLight, 1.0f }; 
 			float[] lightKd = { diffuseLight, diffuseLight, diffuseLight, 1.0f }; 
-			float[] lightKs = { specularLight, specularLight, specularLight, 1.0f };    
+			float[] lightKs = { specularLight, specularLight, specularLight, 0.06f };    
 
 			GL.Light(LightName.Light0, LightParameter.Ambient, lightKa);
 			GL.Light(LightName.Light0, LightParameter.Diffuse, lightKd);
 			GL.Light(LightName.Light0, LightParameter.Specular, lightKs);
 			GL.Light(LightName.Light0, LightParameter.Position, lightPos);
 
-			terrain.Draw();
+			terrain.Draw(flat, downhills);
 		}
 
 		protected override void OnLoad (EventArgs e)
@@ -100,6 +107,13 @@ namespace Enviro3D
 		{
 			base.OnUpdateFrame (e);
 			etime += (float)e.Time;
+
+            //update water
+            if (--updateCountdown == 0)
+            {
+                updateCountdown = 5;
+                t.UpdateState(updates++);
+            }
 
 			//move
 			Vector3 forward = (target - eye); //should be a unit vectorial
@@ -122,6 +136,7 @@ namespace Enviro3D
 				step = Vector3.UnitY;
 			if (kb[Key.ControlLeft])
 				step = -Vector3.UnitY;
+		
 
 			if (step != Vector3.Zero)
 				step.Normalize();	
@@ -151,8 +166,8 @@ namespace Enviro3D
 
 
 			//lighting
-			lightPos[0] = 150 + (float)Math.Cos(etime / 6)*300 ;
-			lightPos[2] = -150 + (float)Math.Sin(etime / 6)*300 ;
+			lightPos[0] = 50 + (float)Math.Cos(etime / 6)*300 ;
+			lightPos[2] = 50 + (float)Math.Sin(etime / 6)*300 ;
 		}
 
 		protected override void OnRenderFrame (FrameEventArgs e)
@@ -160,7 +175,6 @@ namespace Enviro3D
 			base.OnRenderFrame (e);
 			//select some bits from a bitmask that represent what we want to clear I guess
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-			GL.LoadIdentity();
 
 			//create a perspective projection
 			Matrix4 perspective = Matrix4.CreatePerspectiveFieldOfView(0.9f, ClientRectangle.Width/(float)ClientRectangle.Height, 0.01f, 1000f);
@@ -169,7 +183,7 @@ namespace Enviro3D
 			//set the projection matrix
 			GL.LoadMatrix(ref perspective);
 
-			//builds a world space to camera space matrix. camera is at <0,0,0>, target is at <0,0,1>, up is <0,1,0>
+			//builds a world space to camera space matrix up is <0,1,0>
 			Matrix4 modelview = Matrix4.LookAt(eye, target, Vector3.UnitY);
 			//tell openGL we want to set the modelview matrix to this matrix
 			GL.MatrixMode(MatrixMode.Modelview);
@@ -183,12 +197,12 @@ namespace Enviro3D
 			SwapBuffers();
 		}
 
-
-	
-
-		protected override void OnKeyPress (KeyPressEventArgs e)
-		{
-			base.OnKeyPress (e);		
+		protected override void OnKeyDown (KeyboardKeyEventArgs e) {
+			base.OnKeyDown (e);
+			if (e.Key == Key.F)
+				flat = !flat;
+			if (e.Key == Key.Q)
+				downhills = !downhills;
 		}
 
 		protected override void OnResize (EventArgs e)
