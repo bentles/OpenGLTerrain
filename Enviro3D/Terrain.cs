@@ -82,23 +82,23 @@ namespace Enviro3D
 
                 if (type == Diagonal.tlbr)
                 {
-                    top.neighbours[0] = not_right ? null : blocks[I + 1, J].Left();
-                    top.neighbours[1] = bottom;
-                    top.neighbours[2] = not_above ? null : blocks[I, J - 1].bottom;
+					top.neighbours[0] = not_above ? null : blocks[I, J - 1].bottom;
+					top.neighbours[1] = bottom;
+                    top.neighbours[2] = not_right ? null : blocks[I + 1, J].Left();
 
-                    bottom.neighbours[0] = top;
+					bottom.neighbours[0] = not_left ? null : blocks[I - 1, J].Right();
                     bottom.neighbours[1] = not_below? null : blocks[I, J + 1].top;
-                    bottom.neighbours[2] = not_left ? null : blocks[I - 1, J].Right();
+					bottom.neighbours[2] = top;
                 }
                 else
                 {
-                    top.neighbours[0] = bottom;
+					top.neighbours[0] = not_above ? null : blocks[I, J - 1].bottom;
                     top.neighbours[1] = not_left ? null : blocks[I - 1, J].Right();
-                    top.neighbours[2] = not_above ? null : blocks[I, J - 1].bottom;
+					top.neighbours[2] = bottom;
                     
-                    bottom.neighbours[0] = not_right ? null : blocks[I + 1, J].Left();
+					bottom.neighbours[0] = top;
                     bottom.neighbours[1] = not_below ? null : blocks[I, J + 1].top ;
-                    bottom.neighbours[2] = top;
+					bottom.neighbours[2] = not_right ? null : blocks[I + 1, J].Left();
                 }
             }
 
@@ -192,7 +192,7 @@ namespace Enviro3D
 			public TerrainTriangle(float a, float b, float c, Triangle t, int I, int J, float scale)
 			{
                 this.t = t;
-                surface_water = 0.2f;
+                surface_water = 0.3f;
                 new_surface_water = surface_water;
                 ground_water = 0;
                 new_ground_water = ground_water;
@@ -247,9 +247,9 @@ namespace Enviro3D
                 float inv_slope = 1 / (slope);
 
                 //find side normals                
-                neighbour_normals[0] = Vector3.Cross(points[0] - points[1], normal).Normalized();
-                neighbour_normals[1] = Vector3.Cross(points[1] - points[2], normal).Normalized();
-                neighbour_normals[2] = Vector3.Cross(points[2] - points[0], normal).Normalized();
+                neighbour_normals[0] = Vector3.Cross(points[1] - points[0], normal).Normalized();
+                neighbour_normals[1] = Vector3.Cross(points[2] - points[1], normal).Normalized();
+                neighbour_normals[2] = Vector3.Cross(points[0] - points[2], normal).Normalized();
 
                 //triangles to each side
                 neighbours[0] = null;
@@ -288,11 +288,11 @@ namespace Enviro3D
 
                 if (!IsInert())
                 {
-                    float seep_speed = 0.5f;
+                    float seep_speed = 0.01f;
 
                     //send some water into the ground
                     float seep = (ground_capacity - ground_water) > porosity * seep_speed ? porosity * seep_speed : (ground_capacity - ground_water);
-                    new_surface_water -= - seep;
+                    new_surface_water -= seep;
                     new_ground_water += seep;
 
                     float total = 0;
@@ -322,28 +322,27 @@ namespace Enviro3D
                                 diff = -highwater / 3f;
 
                             //water below high mark
-                            float flow_speed = 0.5f;
+                            float flow_speed = 0.65f;
                             //multiply by direction modifier
                             float lowdiff = flow_speed * direction_modifier;
 
                             //actual updates
                             neighbours[i].TryUpdate(cur_turn);
+
+							//water below high mark
+							if (high > neighbours[i].Height())
+							{
+								neighbours[i].new_surface_water += lowdiff;
+								new_surface_water -= lowdiff;
+							}  
                   
-                            neighbours[i].new_surface_water += diff * flow_speed;
-                            new_surface_water -= diff * flow_speed;
+                            neighbours[i].new_surface_water += diff * flow_speed / 3f;
+                            new_surface_water -= diff * flow_speed / 3f;
                             
-                            //water below high mark
-                            if (high > neighbours[i].Height())
-                            {
-                                neighbours[i].new_surface_water += lowdiff;
-                                new_surface_water -= lowdiff;
-                            }                            
+                                                   
                         }
                     }
-
-                }
-
-                
+                }                
             }
 
 			//start at the highest, rightmost point. work anticlockwise. highest has priority
@@ -359,12 +358,12 @@ namespace Enviro3D
 				//ground
 				GL.Begin(PrimitiveType.Triangles);
 				{
-					float greendex = ground_water/ground_capacity;
+					float greendex = ground_water / ground_capacity;
 
 					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Ambient, new Color4(0.1f, 0.1f, 0.1f, 1f));
-					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Diffuse,  new Color4(0.2f   , greendex  , 0.2f  , 1f));
-					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Specular,  new Color4(0.9f   , 0.9f  , 0.9f  , 1f));
-					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Shininess, 100);
+					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Diffuse,  new Color4((greendex*-0.8f) + 0.8f   , (greendex* - 0.35f) + 0.8f  , (greendex * -0.5f) + 0.5f  , 1f));
+					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Specular,  new Color4(0.3f   , 0.3f  , 0.3f  , 1f));
+					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Shininess, 10);
 
 					GL.Normal3(normal);
 					for (int i = 0; i < points.Length; i++) {
@@ -375,20 +374,28 @@ namespace Enviro3D
 				}
 				GL.End();
 
-				//water
-				GL.Begin(PrimitiveType.Triangles);
+				if (surface_water > 0.01f)
 				{
-					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Ambient, new Color4(0.1f, 0.1f, 0.1f, 1f));
-					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Diffuse,  new Color4(0.2f   , 0.2f  , 0.8f  , 1f));
-					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Specular,  new Color4(1f   , 1f  , 1f  , 1f));
-					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Shininess, 1024);
-					for (int i = 0; i < points.Length; i++) {
-						if (!flat)
-							GL.Normal3(normals[i]);
-                        GL.Vertex3(points[i] + new Vector3(0, surface_water, 0));
+					//water
+					GL.Begin(PrimitiveType.Triangles);
+					{
+						GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Ambient, new Color4(0.1f, 0.1f, 0.1f, 1f));
+						GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Diffuse,  new Color4(0.2f   , 0.2f  , 0.8f  , 1f));
+						GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Specular,  new Color4(1f   , 1f  , 1f  , 1f));
+						GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Shininess, 1024);
+						for (int i = 0; i < points.Length; i++) {
+							if (!flat)
+								GL.Normal3(normals[i]);
+							if (Height() < high)
+	                        	GL.Vertex3(points[i] + new Vector3(0, surface_water, 0));
+							else {
+								GL.Normal3(Vector3.UnitY);
+								GL.Vertex3(new Vector3(points[i].X, low + surface_water, points[i].Z));
+							}
+						}
 					}
+					GL.End();
 				}
-				GL.End();
                 
 				//downhill vectors
 				if (downhills)

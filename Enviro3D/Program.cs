@@ -29,8 +29,10 @@ namespace Enviro3D
 		float move_speed = 50f;
 		float mouse_speed = 0.07f;
 
+		bool movesun = false;
 		bool flat = false;
 		bool downhills = false;
+		bool paused = true;
 
 		const float LEFT = -1;
 		const float RIGHT = 1;
@@ -49,7 +51,7 @@ namespace Enviro3D
 		{
 			Title = "Enviro 3D";
 			WindowState = WindowState.Fullscreen;
-			//CursorVisible = false;
+			CursorVisible = false;
 			GL.ClearColor(Color.FromArgb(0xC0D9FA));
 
 			lightPos = new float[]{ 10f, 10.0f, 10.0f, 1.0f };		
@@ -68,13 +70,15 @@ namespace Enviro3D
 				new NoiseWrapper(2f, 0.004f, ADD),
 				new NoiseWrapper(1.5f, 0.009f, MUL),
 				new NoiseWrapper(2f, 0.04f, ADD),
-				new NoiseWrapper(2f, 0.004f, ADD),
+				//new NoiseWrapper(2f, 0.004f, ADD),
 				new NoiseWrapper(0.2f, 0.71f, ADD),
+				new NoiseWrapper(2f, 0.004f, ADD),
+				new NoiseWrapper(2f, 0.004f, ADD),
 				new NoiseWrapper(0.5f, 0.15f, ADD),
 				new NoiseWrapper(1.5f, 0.009f, MUL)
 				};
 			
-			t = new Terrain(100,100, 1f, noisy);
+			t = new Terrain(150,150, 1f, noisy);
 			t.GenerateTerrainFromNoise();
 		}
 
@@ -108,12 +112,15 @@ namespace Enviro3D
 			base.OnUpdateFrame (e);
 			etime += (float)e.Time;
 
-            //update water
-            if (--updateCountdown == 0)
-            {
-                updateCountdown = 5;
-                t.UpdateState(updates++);
-            }
+			if (!paused)
+			{
+	            //update water
+	            if (--updateCountdown == 0)
+	            {
+	                updateCountdown = 5;
+	                t.UpdateState(updates++);
+	            }
+			}
 
 			//move
 			Vector3 forward = (target - eye); //should be a unit vectorial
@@ -166,8 +173,18 @@ namespace Enviro3D
 
 
 			//lighting
-			lightPos[0] = 50 + (float)Math.Cos(etime / 6)*300 ;
-			lightPos[2] = 50 + (float)Math.Sin(etime / 6)*300 ;
+			if (movesun)
+			{
+				lightPos[0] = 50 + (float)Math.Cos(etime / 6)*300 ;
+				lightPos[1] = 100;
+				lightPos[2] = 50 + (float)Math.Sin(etime / 6)*300 ;
+			}
+			else
+			{
+				lightPos[0] = 50 ;
+				lightPos[1] = 100;
+				lightPos[2] = 50 ;
+			}
 		}
 
 		protected override void OnRenderFrame (FrameEventArgs e)
@@ -203,6 +220,10 @@ namespace Enviro3D
 				flat = !flat;
 			if (e.Key == Key.Q)
 				downhills = !downhills;
+			if (e.Key == Key.E)
+				movesun = !movesun;
+			if (e.Key == Key.P)
+				paused = !paused;
 		}
 
 		protected override void OnResize (EventArgs e)
