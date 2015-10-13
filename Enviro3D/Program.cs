@@ -2,6 +2,7 @@
 using System.Drawing;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
+using OpenTK.Graphics;
 using OpenTK.Input;
 using System.Collections.Generic;
 using SimplexNoise;
@@ -13,7 +14,7 @@ namespace Enviro3D
 		public static void Main (string[] args)
 		{
 			Game game = new Game();
-			game.Run(60, 60);
+			game.Run(30, 60);
 		}
 	}
 
@@ -22,6 +23,7 @@ namespace Enviro3D
 		float etime = 0;
         int updateCountdown = 30;
         int updates = 0;
+		int frame_updates = 0;
 
 		Vector3 eye = new Vector3(0,60,0);
 		Vector3 target = new Vector3(0,60,1);
@@ -34,10 +36,9 @@ namespace Enviro3D
 		bool downhills = false;
 		bool paused = true;
 
-		const float LEFT = -1;
-		const float RIGHT = 1;
-		const float TOP = 1;
-		const float BOTTOM = -1;
+		//filming
+		bool film = false;
+		Bitmap bmp;
 
 		const bool ADD = true;
 		const bool MUL = false;
@@ -49,10 +50,13 @@ namespace Enviro3D
 
 		void Init()
 		{
+
+			bmp = new Bitmap(this.ClientSize.Width, this.ClientSize.Height);
+			
 			Title = "Enviro 3D";
-			WindowState = WindowState.Fullscreen;
-			CursorVisible = false;
+			//WindowState = WindowState.Fullscreen;
 			GL.ClearColor(Color.FromArgb(0xC0D9FA));
+
 
 			lightPos = new float[]{ 10f, 10.0f, 10.0f, 1.0f };		
 
@@ -72,8 +76,8 @@ namespace Enviro3D
 				new NoiseWrapper(2f, 0.04f, ADD),
 				//new NoiseWrapper(2f, 0.004f, ADD),
 				new NoiseWrapper(0.2f, 0.71f, ADD),
-				new NoiseWrapper(2f, 0.004f, ADD),
-				new NoiseWrapper(2f, 0.004f, ADD),
+			//	new NoiseWrapper(2f, 0.004f, ADD),
+			//	new NoiseWrapper(2f, 0.004f, ADD),
 				new NoiseWrapper(0.5f, 0.15f, ADD),
 				new NoiseWrapper(1.5f, 0.009f, MUL)
 				};
@@ -211,6 +215,13 @@ namespace Enviro3D
 			//so this is where we want the drawing code to go
 			Draw(t);
 
+			if (film)
+			{
+				using (Bitmap b = GrabScreenshot())	{
+					b.Save(String.Format("{0}.bmp", frame_updates++)) ;
+				}
+			}
+
 			SwapBuffers();
 		}
 
@@ -224,6 +235,24 @@ namespace Enviro3D
 				movesun = !movesun;
 			if (e.Key == Key.P)
 				paused = !paused;
+			if (e.Key == Key.R)
+				film = !film;
+		}
+
+		// Returns a System.Drawing.Bitmap with the contents of the current framebuffer
+		public Bitmap GrabScreenshot()
+		{
+
+
+			if (GraphicsContext.CurrentContext == null)
+				throw new GraphicsContextMissingException();
+			
+			System.Drawing.Imaging.BitmapData data =
+				bmp.LockBits(this.ClientRectangle, System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+			GL.ReadPixels(0, 0, this.ClientSize.Width, this.ClientSize.Height, PixelFormat.Bgr, PixelType.UnsignedByte, data.Scan0);
+			bmp.UnlockBits(data);
+
+			return bmp;
 		}
 
 		protected override void OnResize (EventArgs e)
