@@ -41,7 +41,7 @@ namespace Enviro3D
 		Bitmap bmp;
 
 		const bool ADD = true;
-		const bool MUL = false;
+		const bool MUL = false;		
 
 		float[] lightPos;
 
@@ -51,12 +51,11 @@ namespace Enviro3D
 		void Init()
 		{
 
-			bmp = new Bitmap(this.ClientSize.Width, this.ClientSize.Height);
+			//bmp = new Bitmap(this.ClientSize.Width, this.ClientSize.Height);
 			
 			Title = "Enviro 3D";
-			//WindowState = WindowState.Fullscreen;
+			WindowState = WindowState.Fullscreen;
 			GL.ClearColor(Color.FromArgb(0xC0D9FA));
-
 
 			lightPos = new float[]{ 10f, 10.0f, 10.0f, 1.0f };		
 
