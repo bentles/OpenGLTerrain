@@ -42,6 +42,8 @@
     <Compile Include="Noise.cs" />
     <Compile Include="Terrain.cs" />
     <Compile Include="NoiseWrapper.cs" />
+    <Compile Include="TerrainBlock.cs" />
+    <Compile Include="TerrainTriangle.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>

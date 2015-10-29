@@ -70,7 +70,7 @@ namespace Enviro3D
 			//make terain from composed random noise
 			List<NoiseWrapper> noisy = new List<NoiseWrapper> {
 				new NoiseWrapper(2f, 0.011f, ADD),
-				new NoiseWrapper(2f, 0.004f, ADD),
+				//new NoiseWrapper(2f, 0.004f, ADD),
 				new NoiseWrapper(1.5f, 0.009f, MUL),
 				new NoiseWrapper(2f, 0.04f, ADD),
 				//new NoiseWrapper(2f, 0.004f, ADD),
@@ -81,7 +81,7 @@ namespace Enviro3D
 				new NoiseWrapper(1.5f, 0.009f, MUL)
 				};
 			
-			t = new Terrain(150,150, 1f, noisy);
+			t = new Terrain(100,100, 1f, noisy);
 			t.GenerateTerrainFromNoise();
 		}
 
