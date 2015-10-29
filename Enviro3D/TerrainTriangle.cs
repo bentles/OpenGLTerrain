@@ -119,7 +119,7 @@ namespace Enviro3D {
 				if (surface_water < 0 )
 				{
 					lastwater++;
-					wetness = 1 - (1 / (1 + (float)Math.Exp((lastwater/20) - 6)));
+					wetness = 1 - (1 / (1 + (float)Math.Exp((lastwater/100) - 6)));
 				}
 			}                
 		}
@@ -190,8 +190,6 @@ namespace Enviro3D {
 
 						neighbours[i].new_surface_water += diff * flow_speed / 3f;
 						new_surface_water -= diff * flow_speed / 3f;
-
-
 					}
 				}
 			}                
@@ -212,11 +210,12 @@ namespace Enviro3D {
 			{
 				float greendex = ground_water / ground_capacity;
 
+				//Console.WriteLine(wetness);
+				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Shininess, 10 + 80 * wetness );
 				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Ambient, new Color4(0.1f, 0.1f, 0.1f, 1f));
 				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Diffuse,  new Color4((greendex*-0.8f) + 0.8f   , (greendex* - 0.35f) + 0.8f  , (greendex * -0.5f) + 0.5f  , 1f));
 				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Specular,  new Color4(0.3f   , 0.3f  , 0.3f  , 1f));
-				GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Shininess, 10);
-				//GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Shininess, 1000 * wetness );
+				//GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Shininess, 10);
 
 				GL.Normal3(normal);
 				for (int i = 0; i < points.Length; i++) {
@@ -227,15 +226,15 @@ namespace Enviro3D {
 			}
 			GL.End();
 
-			if (surface_water > 0.01f)
+			if (surface_water > 0)
 			{
 				//water
 				GL.Begin(PrimitiveType.Triangles);
 				{
+					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Shininess, 500);
 					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Ambient, new Color4(0.1f, 0.1f, 0.1f, 1f));
 					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Diffuse,  new Color4(0.2f   , 0.2f  , 0.8f  , 1f));
 					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Specular,  new Color4(1f   , 1f  , 1f  , 1f));
-					GL.Material(MaterialFace.FrontAndBack, MaterialParameter.Shininess, 1024);
 					for (int i = 0; i < points.Length; i++) {
 						if (!flat)
 							GL.Normal3(normals[i]);
